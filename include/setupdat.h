@@ -176,6 +176,18 @@ void handle_hispeed( BOOL highspeed );
 #define DSCR_DEVQUAL_TYPE 6
 #define DSCR_OTHERSPD_TYPE 7
 
+/* Added by Rohit below:
+ * DSCR_DEDUB_TYPE
+ * Notes:   DSCR_DEBUG_TYPE is not required (ie is optional)
+ *          but it gives out Warning out on serial when it is not handled
+ *          Warning message looks like this
+ *          "Unhandled Get Descriptor: 0a" when running lsusb
+ *
+ *          More: komposter.com.ua/documents/USB-2.0-Debug-Port(John-Keys).pdf
+ */
+
+ #define DSCR_DEDUB_TYPE 0x0A
+
 /* usb spec 2 */
 #define DSCR_BCD 2
 

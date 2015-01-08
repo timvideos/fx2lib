@@ -36,7 +36,6 @@ extern BOOL handle_set_configuration(BYTE cfg);
 extern BOOL handle_get_interface(BYTE ifc, BYTE* alt_ifc);
 extern BOOL handle_set_interface(BYTE ifc,BYTE alt_ifc);
 extern BYTE handle_get_configuration();
-extern BOOL handle_set_configuration(BYTE cfg);
 extern void handle_reset_ep(BYTE ep);
 
 /**
@@ -303,10 +302,34 @@ void handle_hispeed(BOOL highspeed) {
  **/
 void handle_get_descriptor() {
     //printf ( "Get Descriptor\n" );
-    
+
+    //    CRITICAL!!!
+    //
+    //    Comment by Rohit:
+    //
+    //    Why aren't we setting "SUDPTRCTL = 0x01;" from
+    //    corresponding code in /hdmi2usb/cypress/fw.c ?
+    //    Its supposedly sets to "Setup Data Pointer Auto Mode" 
+    //    see Appendix C - 29 of TRM
+    //
+    //    Without the below line, the code results in device not getting
+    //    enumerated properly.  resulting in failing of lsusb -v (verbose mode)
+    //    and also numerous kernel debug messages in dmesg and also obviously
+    //    the mplayer or guvcview, both result in same kernel debug messages in
+    //    dmesg something like this:
+    //          reset high-speed USB device number 13 using ehci-pci
+    //          usb 1-1.1.6: device descriptor read/64, error 2
+    //          usb 1-1.1.6: device descriptor read/64, error 2
+    //
+    //    and in the end the device stops getting listed in the pc, with error
+    //    like this:
+    //          "unable to enumerate USB device on port 6"
+
+    SUDPTRCTL = 0x01;
+
     switch ( SETUPDAT[3] ) {
         case DSCR_DEVICE_TYPE:
-            printf ( "Get Device Config\n" );
+            printf ( "Get Device Config\n");
             SUDPTRH = MSB((WORD)&dev_dscr);
             SUDPTRL = LSB((WORD)&dev_dscr);
             break;
@@ -317,7 +340,7 @@ void handle_get_descriptor() {
             SUDPTRL = LSB(pDevConfig);
             break;        
         case DSCR_STRING_TYPE:
-            //printf ( "Get String Descriptor idx: %d\n", SETUPDAT[2] );
+            printf ( "Get String Descriptor idx: %d\n", SETUPDAT[2] );
             {
                 STRING_DSCR* pStr = (STRING_DSCR*)&dev_strings;
                 // pStr points to string 0
@@ -359,6 +382,12 @@ void handle_get_descriptor() {
             SUDPTRH = MSB(pOtherConfig);
             SUDPTRL = LSB(pOtherConfig);
             break;
+        case DSCR_DEDUB_TYPE:
+            printf ("There you go. Handled this GET descriptor: %02x\n", SETUPDAT[3]);
+            printf ("But we don't have to do anything...sorry!\n");
+            // Jokes apart. Please remove above lines. They are useless
+            break;
+
         default:
             printf ( "Unhandled Get Descriptor: %02x\n", SETUPDAT[3]);
             STALLEP0();

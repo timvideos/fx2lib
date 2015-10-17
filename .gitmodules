@@ -1,0 +1,3 @@
+[submodule "include/linux"]
+	path = include/linux
+	url = https://github.com/mithro/fx2lib-linux-headers.git

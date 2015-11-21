@@ -21,7 +21,10 @@
 #ifndef EPUTILS_H
 #define EPUTILS_H
 
+#include <assert.h>
+
 #include "fx2types.h"
+#include "fx2macros.h"
 
 /**
  * NOTE you can't use these unless you define SYNCDELAY 
@@ -80,13 +83,61 @@
  **/
 void readep0( BYTE* dst, WORD len );
 
-
 /**
  * Write bytes from src to ep0, allowing host to transfer data
  * between 64 byte blocks.
  **/
-void writeep0 ( BYTE* src, WORD len );
+void writeep0( BYTE* src, WORD len );
 
+// The Setup Data Pointer can access data in either of two RAM spaces:
+//  - On-chip Main RAM (8 KB at 0x0000-0x1FFF)
+//  - On-chip Scratch RAM (512 bytes at 0xE000-0xE1FF)
+// The base address of SUDPTRH:L must be word-aligned.
+#define ep0_load_sudptr(src) \
+	assert( \
+		(((WORD)src) <= 0x3FFF) || \
+		(((WORD)src) >= 0xE000 && ((WORD)src) <= 0xE1FF)); \
+	assert(!(LSB(src) & bmBIT0)); \
+	LOADWORD(SUDPTR, src);
 
+// For manual mode, SUDPTRCTL must be in "auto read length mode".
+//
+// |  Data Read  | Data Length | SUDPTRCTL |
+// |-------------|-------------|-----------|
+// | Auto   (0)  | Manual (0)  |  0|0 = 0  | SUDPTR->EP0BC
+// | Manual (1)  | Manual (0)  |  1|0 = 1  | EP0BUF->EP0BC
+// | Auto   (0)  | Auto   (1)  |  0|1 = 1  | SUDPTR
+// | Manual (1)  | Auto   (1)  |  Invalid  | NA
+enum ep0_mode_data {
+	EP0_DATA_AUTO    = 0,
+	EP0_DATA_MANUAL  = 1,
+};
+enum ep0_mode_length {
+	EP0_LENGTH_AUTO   = 1,
+	EP0_LENGTH_MANUAL = 0,
+};
+
+#define ep0_mode(mode_data, mode_length) \
+	assert(!(mode_data & mode_length)); \
+	SUDPTRCTL = mode_data | mode_length;
+
+#define ep0_busywait() \
+	while (EP0CS & bmEPBUSY) printf("w\n");
+
+#define ep0_load_length(len) \
+	LOADWORD(EP0BC, len);
+
+#define ep0_arm() \
+	ep0_load_length(0);
+
+// ep0 can only receive 64 bytes
+#define ep0_get_length() \
+	EP0BCL
+
+void ep0_send_auto(__xdata BYTE* src, WORD len);
+void ep0_send_byte(BYTE data);
+void ep0_send_word(WORD data);
+
+BYTE ep0_recv();
 
 #endif

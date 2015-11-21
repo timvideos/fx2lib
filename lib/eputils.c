@@ -16,9 +16,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  **/
 
-
-
-
 #include <eputils.h>
 
 #include <fx2regs.h>
@@ -33,11 +30,7 @@ void readep0( BYTE* dst, WORD len) {
     WORD read = 0; // n bytes read
     BYTE c,avail;
     while (read < len) {
-        EP0BCH = 0;
-        // NOTE need syncdelay?
-        EP0BCL = 0; // re-arm ep so host can send more
-        while (EP0CS & bmEPBUSY);
-        avail = EP0BCL; // max size fits in one byte (64 bytes)
+        avail = ep0_recv();
         for (c=0;c<avail;++c)
             dst[read+c] = EP0BUF[c];
         read += avail;
@@ -49,12 +42,46 @@ void writeep0( BYTE* src, WORD len) {
     WORD written = 0;
     BYTE c;
     while ( written < len ) {
-        while ( EP0CS & bmEPBUSY ); // wait
+        ep0_busywait();
         for (c=0;c<64 && written<len;++c ) {
             EP0BUF[c] = src[written++];
         }
-        EP0BCH = 0;
-        EP0BCL= c;
-        printf ( "Write %d bytes\n", c );
+        ep0_load_length(c);
+        printf("Write %d bytes\n", c);
     }
+}
+
+void ep0_send_descriptor(__xdata BYTE* src) {
+    // The ep0_load_length will be read out of the descriptor.
+    ep0_mode(EP0_DATA_AUTO, EP0_LENGTH_AUTO);
+    ep0_load_sudptr(src);
+}
+
+void ep0_send_auto(__xdata BYTE* src, WORD len) {
+    ep0_mode(EP0_DATA_AUTO, EP0_LENGTH_MANUAL);
+    ep0_load_length(len);
+    ep0_load_sudptr(src);
+}
+
+void ep0_send_byte(BYTE data) {
+    ep0_mode(EP0_DATA_MANUAL, EP0_LENGTH_MANUAL);
+    EP0BUF[0] = data;
+    ep0_load_length(sizeof(data));
+}
+
+void ep0_send_word(WORD data) {
+    ep0_mode(EP0_DATA_MANUAL, EP0_LENGTH_MANUAL);
+    EP0BUF[0] = MSB(data);
+    EP0BUF[1] = LSB(data);
+    ep0_load_length(sizeof(data));
+}
+
+BYTE ep0_recv() {
+    BYTE len = 0;
+    ep0_mode(EP0_DATA_MANUAL, EP0_LENGTH_MANUAL);
+    ep0_arm(); //ep0_load_length(len);
+    ep0_busywait();
+    len = ep0_get_length();
+    // EP0BUF now has the requested data
+    return len;
 }

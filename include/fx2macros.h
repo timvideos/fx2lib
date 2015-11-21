@@ -32,6 +32,13 @@
 #define LSW(dword) (WORD)(dword & 0xffff)
 #define MAKEDWORD(msw,lsw) (((DWORD)msw << 16) | lsw)
 
+/**
+ * Load a word register (such as the data pointers), high byte then low byte.
+ */
+#define LOADWORD(reg, value) \
+    reg ## H = MSB(value); \
+    reg ## L = LSB(value);
+
 // clock stuff
 
 /**
